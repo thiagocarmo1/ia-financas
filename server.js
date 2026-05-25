@@ -1,5 +1,9 @@
 // Polly e Thi finance - Backend Server (Node.js & Express & Supabase/PostgreSQL)
 require('dotenv').config();
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
