@@ -21,7 +21,11 @@ if (!DATABASE_URL) {
 // Configuração do Pool de Conexão com Supabase
 const pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Necessário para conexões externas ao Supabase
+    ssl: { rejectUnauthorized: false },
+    // Forçar IPv4 na resolução de DNS para evitar ENETUNREACH
+    lookup: (hostname, options, callback) => {
+        dns.lookup(hostname, { family: 4 }, callback);
+    }
 });
 
 // Middleware
