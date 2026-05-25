@@ -8,6 +8,25 @@ const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
+const webpush = require('web-push');
+
+// Configuração VAPID para notificações Push
+const VAPID_KEYS_FILE = path.join(__dirname, 'data', 'vapid-keys.json');
+let vapidKeys;
+
+if (fs.existsSync(VAPID_KEYS_FILE)) {
+    vapidKeys = JSON.parse(fs.readFileSync(VAPID_KEYS_FILE, 'utf8'));
+} else {
+    vapidKeys = webpush.generateVAPIDKeys();
+    if (!fs.existsSync(path.join(__dirname, 'data'))) fs.mkdirSync(path.join(__dirname, 'data'));
+    fs.writeFileSync(VAPID_KEYS_FILE, JSON.stringify(vapidKeys), 'utf8');
+}
+
+webpush.setVapidDetails(
+    'mailto:seu-email@dominio.com',
+    vapidKeys.publicKey,
+    vapidKeys.privateKey
+);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,6 +78,7 @@ async function initDB() {
                 goals JSONB DEFAULT '[]',
                 emergency_reserve NUMERIC DEFAULT 0,
                 months JSONB DEFAULT '{}',
+                push_subscription JSONB,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -272,6 +292,70 @@ app.patch('/api/months/:yearMonth/closing', async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: 'Erro ao salvar fechamento.' });
+    }
+});
+
+// ==================== ROTAS DE NOTIFICAÇÃO PUSH ====================
+
+app.get('/api/notifications/vapid-public-key', (req, res) => {
+    res.json({ publicKey: vapidKeys.publicKey });
+});
+
+app.post('/api/notifications/subscribe', async (req, res) => {
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+    const { subscription } = req.body;
+
+    try {
+        await pool.query('UPDATE users SET push_subscription = $1 WHERE id = $2', [JSON.stringify(subscription), userId]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Erro ao salvar inscrição de notificação.' });
+    }
+});
+
+// Rota de trigger manual para testes ou para ser chamada por um cron-job
+app.post('/api/notifications/check-vencimentos', async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { rows: users } = await pool.query('SELECT id, name, months, push_subscription FROM users WHERE push_subscription IS NOT NULL');
+
+        let notificationsSent = 0;
+
+        for (const user of users) {
+            const months = user.months || {};
+            // Procurar transações pendentes para hoje em todos os meses (foco no atual)
+            let pendingToday = [];
+            Object.values(months).forEach(m => {
+                const txs = m.transactions || [];
+                const found = txs.filter(t => t.pending && t.dueDate === today);
+                pendingToday = [...pendingToday, ...found];
+            });
+
+            if (pendingToday.length > 0 && user.push_subscription) {
+                const payload = JSON.stringify({
+                    title: 'Lembrete de Vencimento 📅',
+                    body: `Olá ${user.name.split(' ')[0]}, você tem ${pendingToday.length} conta(s) vencendo hoje!`,
+                    icon: '/app_icon.png'
+                });
+
+                try {
+                    await webpush.sendNotification(user.push_subscription, payload);
+                    notificationsSent++;
+                } catch (err) {
+                    console.error(`Erro ao enviar notificação para user ${user.id}:`, err);
+                    if (err.statusCode === 410) {
+                        // Inscrição expirada
+                        await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
+                    }
+                }
+            }
+        }
+
+        res.json({ success: true, sent: notificationsSent });
+    } catch (e) {
+        console.error('Erro ao verificar vencimentos:', e);
+        res.status(500).json({ error: 'Erro interno ao processar notificações.' });
     }
 });
 

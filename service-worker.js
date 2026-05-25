@@ -44,3 +44,43 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
+
+// ESCUTAR NOTIFICAÇÕES PUSH
+self.addEventListener('push', (event) => {
+  let data = { title: 'Polly e Thi finance', body: 'Você tem uma nova notificação!' };
+  
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch(e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || '/app_icon.png',
+    badge: '/app_icon.png',
+    vibrate: [100, 50, 100],
+    data: {
+      url: self.location.origin
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// ABRIR O APP AO CLICAR NA NOTIFICAÇÃO
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientList) => {
+      if (clientList.length > 0) {
+        return clientList[0].focus();
+      }
+      return clients.openWindow('/');
+    })
+  );
+});

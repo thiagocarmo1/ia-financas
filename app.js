@@ -48,10 +48,82 @@ document.addEventListener('DOMContentLoaded', () => {
     // Registrar PWA Service Worker para suportar instalação móvel
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('service-worker.js')
-            .then(reg => console.log('PWA Service Worker registrado com sucesso:', reg.scope))
+            .then(reg => {
+                console.log('PWA Service Worker registrado com sucesso:', reg.scope);
+                checkNotificationSubscription(reg);
+            })
             .catch(err => console.error('Erro ao registrar PWA Service Worker:', err));
     }
 });
+
+// GESTÃO DE NOTIFICAÇÕES PUSH
+async function checkNotificationSubscription(reg) {
+    const subscription = await reg.pushManager.getSubscription();
+    const btn = document.getElementById('enable-notifications-btn');
+    if (subscription) {
+        btn.textContent = 'Alertas Ativos';
+        btn.classList.add('enabled');
+    }
+}
+
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        alert('Este navegador não suporta notificações desktop.');
+        return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+        subscribeUserToPush();
+    } else {
+        alert('Permissão de notificação negada. Você não receberá alertas de vencimento.');
+    }
+}
+
+async function subscribeUserToPush() {
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        
+        // Buscar chave pública do servidor
+        const response = await fetch('/api/notifications/vapid-public-key');
+        const { publicKey } = await response.json();
+        
+        const subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        
+        // Salvar no servidor
+        await fetch('/api/notifications/subscribe', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': state.currentUser ? state.currentUser.id : null
+            },
+            body: JSON.stringify({ subscription })
+        });
+        
+        const btn = document.getElementById('enable-notifications-btn');
+        btn.textContent = 'Alertas Ativos';
+        btn.classList.add('enabled');
+        alert('Notificações ativadas com sucesso!');
+        
+    } catch (e) {
+        console.error('Erro ao assinar notificações:', e);
+    }
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
 
 // CARREGAR DADOS DO PERFIL NO FORMULÁRIO DE AJUSTES
 function loadProfileIntoForm() {
@@ -509,6 +581,7 @@ function renderTransactionsTable() {
     
     displayList.forEach(t => {
         const tr = document.createElement('tr');
+        if (t.pending) tr.classList.add('row-pending');
         
         let typeBadge = '';
         let typeClass = '';
@@ -531,8 +604,11 @@ function renderTransactionsTable() {
         const sign = isExpense ? '-' : '+';
         const valClass = isExpense ? 'val-txt expense' : 'val-txt income';
         
+        const dateDisplay = t.dueDate ? `<br><small style="color:var(--text-muted)">Venc: ${t.dueDate.split('-').reverse().join('/')}</small>` : '';
+        const pendingIcon = t.pending ? '<span title="Pendente" style="margin-right:5px; font-size: 0.8rem;">⏳</span>' : '';
+
         tr.innerHTML = `
-            <td><strong>${t.desc}</strong></td>
+            <td>${pendingIcon}<strong>${t.desc}</strong>${dateDisplay}</td>
             <td>${isExpense ? t.category : 'Receita'}</td>
             <td><span class="${typeClass}">${typeBadge}</span></td>
             <td>${isEssentialText}</td>
@@ -555,6 +631,8 @@ async function handleTransactionSubmit(e) {
     const category = document.getElementById('trans-category').value;
     const essential = document.getElementById('trans-essential').checked;
     const isInstallment = document.getElementById('trans-installment').checked;
+    const dueDate = document.getElementById('trans-due-date').value;
+    const pending = document.getElementById('trans-pending').checked;
 
     if (!desc || isNaN(value) || value <= 0) return;
 
@@ -570,6 +648,14 @@ async function handleTransactionSubmit(e) {
             const paymentDate = dateOffset.toISOString().split('T')[0];
             const targetMonth = getYearMonth(dateOffset);
 
+            // Calcular data de vencimento para parcelas
+            let instDueDate = null;
+            if (dueDate) {
+                const d = new Date(dueDate);
+                d.setMonth(d.getUTCMonth() + (i - 1));
+                instDueDate = d.toISOString().split('T')[0];
+            }
+
             const tx = {
                 id: Date.now() + i,
                 desc: `${desc} (${i}/${numMonths})`,
@@ -577,7 +663,9 @@ async function handleTransactionSubmit(e) {
                 type: 'expense-variable',
                 category,
                 essential,
-                date: paymentDate
+                date: paymentDate,
+                dueDate: instDueDate,
+                pending
             };
 
             // Adicionar no mês correspondente
@@ -597,7 +685,9 @@ async function handleTransactionSubmit(e) {
             type,
             category: type === 'income-extra' ? 'Outros' : category,
             essential: type === 'income-extra' ? false : essential,
-            date: today
+            date: today,
+            dueDate: dueDate || null,
+            pending: pending || false
         };
 
         await addTransactionToMonth(state.activeMonth, tx);
