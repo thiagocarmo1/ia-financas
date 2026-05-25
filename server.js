@@ -140,7 +140,7 @@ app.post('/api/auth/login', async (req, res) => {
 // ==================== ROTAS FINANCEIRAS ====================
 
 app.get('/api/financials', async (req, res) => {
-    const userId = req.headers['x-user-id'];
+    const userId = parseInt(req.headers['x-user-id']);
     if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
 
     try {
@@ -176,7 +176,8 @@ app.get('/api/financials', async (req, res) => {
 });
 
 app.post('/api/financials', async (req, res) => {
-    const userId = req.headers['x-user-id'];
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
     const { profile, goals, emergencyReserve } = req.body;
 
     try {
@@ -191,7 +192,8 @@ app.post('/api/financials', async (req, res) => {
 });
 
 app.get('/api/months/:yearMonth', async (req, res) => {
-    const userId = req.headers['x-user-id'];
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
     const { yearMonth } = req.params;
 
     try {
@@ -206,7 +208,8 @@ app.get('/api/months/:yearMonth', async (req, res) => {
 });
 
 app.post('/api/months/:yearMonth/transactions', async (req, res) => {
-    const userId = req.headers['x-user-id'];
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
     const { yearMonth } = req.params;
     const transaction = req.body;
 
@@ -225,7 +228,8 @@ app.post('/api/months/:yearMonth/transactions', async (req, res) => {
 });
 
 app.delete('/api/months/:yearMonth/transactions/:id', async (req, res) => {
-    const userId = req.headers['x-user-id'];
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
     const { yearMonth, id } = req.params;
     const transId = parseInt(id);
 
@@ -244,7 +248,8 @@ app.delete('/api/months/:yearMonth/transactions/:id', async (req, res) => {
 });
 
 app.patch('/api/months/:yearMonth/closing', async (req, res) => {
-    const userId = req.headers['x-user-id'];
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
     const { yearMonth } = req.params;
     const { closingBalance } = req.body;
 
