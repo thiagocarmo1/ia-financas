@@ -1689,8 +1689,21 @@ body {
         flex-direction: row;
         align-items: center;
         justify-content: flex-start;
+        position: relative;
+        z-index: 1000; /* Garantir que está acima de tudo */
     }
 }
+
+.version-info {
+    position: fixed;
+    bottom: 5px;
+    right: 10px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    z-index: 9999;
+    pointer-events: none;
+}
+
 
 
 @keyframes slideInLeft {
