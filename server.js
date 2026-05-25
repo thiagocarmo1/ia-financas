@@ -13,6 +13,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
 
+console.log('--- DIAGNÓSTICO DE INICIALIZAÇÃO ---');
+console.log('DATABASE_URL está presente?', !!DATABASE_URL);
+if (DATABASE_URL) {
+    console.log('DATABASE_URL prefixo:', DATABASE_URL.substring(0, 20) + '...');
+}
+console.log('PORT:', PORT);
+console.log('------------------------------------');
+
 if (!DATABASE_URL) {
     console.error('ERRO: DATABASE_URL não definida no arquivo .env');
     process.exit(1);
