@@ -102,16 +102,18 @@ app.post('/api/auth/register', async (req, res) => {
         return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
 
     try {
+        console.log(`Tentando registrar usuário: ${email}`);
         const result = await pool.query(
             'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
             [name, email.toLowerCase(), password]
         );
         const newUser = result.rows[0];
-        console.log(`Novo usuário: ${name} (${email})`);
+        console.log(`Novo usuário registrado com sucesso: ${name} (${email})`);
         res.status(201).json({ success: true, user: { id: newUser.id, name: newUser.name, email: newUser.email } });
     } catch (e) {
+        console.error('ERRO NO REGISTRO:', e);
         if (e.code === '23505') return res.status(400).json({ error: 'Este e-mail já está cadastrado.' });
-        res.status(500).json({ error: 'Erro ao registrar usuário.' });
+        res.status(500).json({ error: 'Erro interno no servidor ao registrar usuário. Verifique os logs do servidor.' });
     }
 });
 
