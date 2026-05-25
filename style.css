@@ -1667,33 +1667,48 @@ body {
     
     .mobile-only-btn {
         display: block;
+        z-index: 1001;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .sidebar.mobile-active {
-        display: flex;
+        display: flex !important;
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 2000;
-        background: var(--bg-dark);
+        width: 100vw;
+        height: 100vh;
+        z-index: 9999; /* Z-index altíssimo para iPhone */
+        background: #0a0a14; /* Cor sólida para evitar problemas de transparência */
         padding: 2rem;
         flex-direction: column;
         animation: slideInLeft 0.3s ease-out;
+        pointer-events: auto; /* Garantir que aceita cliques */
     }
 
     .sidebar.mobile-active .nav-menu {
+        display: flex !important;
         flex-direction: column !important;
-        gap: 1rem;
-        margin-top: 2rem;
+        gap: 1.5rem;
+        margin-top: 3rem;
+        width: 100%;
     }
 
     .sidebar.mobile-active .nav-item {
-        font-size: 1.2rem;
-        padding: 1rem;
+        font-size: 1.3rem;
+        padding: 1.2rem;
         width: 100%;
-        background: rgba(255,255,255,0.03);
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        text-align: left;
+        cursor: pointer !important; /* Essencial para iOS reconhecer como clique */
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        -webkit-tap-highlight-color: transparent; /* Remove o flash cinza no iOS */
     }
 
     .main-content {
