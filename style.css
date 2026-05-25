@@ -1649,66 +1649,33 @@ body {
 .hidden { display: none !important; }
 
 /* RESPONSIVE DESIGN */
-/* REESTRUTURAÇÃO MOBILE: Menu Dropdown / Hambúrguer */
-.mobile-only-btn {
+/* NOVA NAVEGAÇÃO MOBILE: Select Nativo (Bulletproof) */
+.mobile-nav-container {
     display: none;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: white;
-    padding: 0.5rem;
-    border-radius: 8px;
-    cursor: pointer;
 }
 
 @media (max-width: 1024px) {
     .sidebar {
-        display: none; /* Esconder sidebar padrão no mobile */
+        display: none !important;
     }
     
-    .mobile-only-btn {
+    .mobile-nav-container {
         display: block;
-        z-index: 1001;
-        cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
+        margin-right: 1rem;
     }
 
-    .sidebar.mobile-active {
-        display: flex !important;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 9999; /* Z-index altíssimo para iPhone */
-        background: #0a0a14; /* Cor sólida para evitar problemas de transparência */
-        padding: 2rem;
-        flex-direction: column;
-        animation: slideInLeft 0.3s ease-out;
-        pointer-events: auto; /* Garantir que aceita cliques */
-    }
-
-    .sidebar.mobile-active .nav-menu {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 1.5rem;
-        margin-top: 3rem;
-        width: 100%;
-    }
-
-    .sidebar.mobile-active .nav-item {
-        font-size: 1.3rem;
-        padding: 1.2rem;
-        width: 100%;
-        background: rgba(255,255,255,0.05);
-        border-radius: 12px;
-        text-align: left;
-        cursor: pointer !important; /* Essencial para iOS reconhecer como clique */
-        border: 1px solid rgba(255,255,255,0.1);
+    .mobile-nav-select {
+        background: #1e1e2e;
         color: white;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        -webkit-tap-highlight-color: transparent; /* Remove o flash cinza no iOS */
+        border: 1px solid rgba(255,255,255,0.1);
+        padding: 0.6rem 1rem;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-family: var(--font-main);
+        font-weight: 600;
+        cursor: pointer;
+        outline: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
 
     .main-content {
@@ -1719,11 +1686,12 @@ body {
     .topbar {
         padding: 1rem 0;
         display: flex;
-        flex-direction: row !important;
+        flex-direction: row;
         align-items: center;
-        gap: 1rem;
+        justify-content: flex-start;
     }
 }
+
 
 @keyframes slideInLeft {
     from { transform: translateX(-100%); }

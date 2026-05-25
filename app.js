@@ -138,18 +138,14 @@ function loadProfileIntoForm() {
 }
 
 // NAVEGAÇÃO ENTRE ABAS (SPA)
-function toggleMobileMenu() {
-    const sidebar = document.getElementById('app-sidebar');
-    sidebar.classList.toggle('mobile-active');
-}
-
 function switchTab(tabName) {
     state.activeTab = tabName;
     
-    // Fechar menu mobile se estiver aberto
-    document.getElementById('app-sidebar').classList.remove('mobile-active');
+    // Sincronizar o Select Mobile se existir
+    const mobileSelect = document.getElementById('mobile-tab-select');
+    if (mobileSelect) mobileSelect.value = tabName;
     
-    // Atualizar botões da sidebar
+    // Atualizar botões da sidebar (desktop)
     document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.getElementById(`tab-${tabName}`);
     if (activeBtn) activeBtn.classList.add('active');
