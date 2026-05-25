@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polly e Thi finance - Gestão Financeira Inteligente</title>
+    <meta name="description" content="Controle financeiro pessoal inteligente com previsões e inteligência artificial para otimização de orçamento e tomada de decisão.">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Polly & Thi">
+    <link rel="apple-touch-icon" href="app_icon.png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- OVERLAY DE LOGIN / CADASTRO -->
+    <div class="modal-backdrop" id="auth-overlay" style="display: flex;">
+        <div class="modal-content glass-panel" style="max-width: 400px; padding: 2rem;">
+            <div class="logo-area" style="justify-content: center; margin-bottom: 2rem;">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                </div>
+                <span class="logo-text">Polly e Thi <span class="highlight">finance</span></span>
+            </div>
+
+            <!-- Formulário de Login -->
+            <form id="auth-login-form" onsubmit="handleAuthLogin(event)">
+                <h3 style="text-align: center; margin-bottom: 1.5rem; font-family: var(--font-display);">Acessar Painel</h3>
+                
+                <div class="form-group">
+                    <label for="login-email">Endereço de E-mail</label>
+                    <input type="email" id="login-email" placeholder="nome@provedor.com" required autocomplete="email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="login-password">Senha de Acesso</label>
+                    <input type="password" id="login-password" placeholder="Sua senha secreta" required autocomplete="current-password">
+                </div>
+                
+                <button type="submit" class="submit-btn green-btn" style="margin-top: 1rem; width: 100%;">Entrar na Conta</button>
+                
+                <p style="text-align: center; font-size: 0.8rem; margin-top: 1.25rem; color: var(--text-sub);">
+                    Ainda não tem conta? <a href="#" onclick="toggleAuthForm('register')" style="color: var(--primary-violet); text-decoration: none; font-weight: 600;">Cadastre-se aqui</a>
+                </p>
+            </form>
+
+            <!-- Formulário de Cadastro -->
+            <form id="auth-register-form" class="hidden" onsubmit="handleAuthRegister(event)">
+                <h3 style="text-align: center; margin-bottom: 1.5rem; font-family: var(--font-display);">Criar Nova Conta</h3>
+                
+                <div class="form-group">
+                    <label for="register-name">Nome Completo</label>
+                    <input type="text" id="register-name" placeholder="Ex: Pollyana ou Thiago" required autocomplete="name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="register-email">Endereço de E-mail</label>
+                    <input type="email" id="register-email" placeholder="nome@provedor.com" required autocomplete="email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="register-password">Senha</label>
+                    <input type="password" id="register-password" placeholder="Mínimo 6 dígitos" required autocomplete="new-password">
+                </div>
+                
+                <button type="submit" class="submit-btn green-btn" style="margin-top: 1rem; width: 100%;">Registrar e Entrar</button>
+                
+                <p style="text-align: center; font-size: 0.8rem; margin-top: 1.25rem; color: var(--text-sub);">
+                    Já possui uma conta? <a href="#" onclick="toggleAuthForm('login')" style="color: var(--primary-violet); text-decoration: none; font-weight: 600;">Faça login</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar de Navegação -->
+        <aside class="sidebar" id="app-sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                </div>
+                <span class="logo-text">Polly e Thi <span class="highlight">finance</span></span>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" id="tab-dashboard" onclick="switchTab('dashboard')">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                    Dashboard
+                </button>
+                <button class="nav-item" id="tab-transacoes" onclick="switchTab('transacoes')">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Transações
+                </button>
+                <button class="nav-item" id="tab-metas" onclick="switchTab('metas')">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    Metas & Reserva
+                </button>
+                <button class="nav-item" id="tab-simulador" onclick="switchTab('simulador')">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                    Simulador IA
+                </button>
+                <button class="nav-item" id="tab-historico" onclick="switchTab('historico')">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Histórico
+                </button>
+                <button class="nav-item" id="btn-logout" onclick="logoutUser()" style="margin-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 1rem;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Sair da Conta
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar" id="sidebar-user-avatar">PT</div>
+                    <div class="user-info">
+                        <span class="user-name" id="sidebar-user-name">Usuário</span>
+                        <span class="user-role" id="sidebar-user-role">Polly e Thi finance</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Container Principal -->
+        <main class="main-content">
+            <!-- Topbar / Header -->
+            <header class="topbar">
+                <div class="header-title">
+                    <h1 id="page-title">Dashboard Financeiro</h1>
+                    <p class="subtitle" id="page-subtitle">Sua saúde financeira analisada em tempo real por Inteligência Artificial.</p>
+                </div>
+                
+                <div class="financial-quick-status">
+                    <div class="status-indicator-wrapper" onclick="openHealthDetailsModal()">
+                        <div class="status-circle" id="health-ring">
+                            <span class="status-percentage" id="health-percentage">0%</span>
+                        </div>
+                        <div class="status-label-group">
+                            <span class="status-title">Saúde Financeira</span>
+                            <span class="status-value" id="health-text">Analisando...</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Alertas e Insights Proativos da IA -->
+            <section class="ai-insight-strip" id="ai-insight-strip">
+                <div class="insight-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                </div>
+                <div class="insight-text" id="dynamic-ai-headline">
+                    Carregando análise proativa de gastos...
+                </div>
+                <button class="insight-action-btn" onclick="switchTab('simulador')">Ver Detalhes</button>
+            </section>
+
+            <!-- Conteúdo das Abas -->
+            <div class="content-wrapper">
+                
+                <!-- ABA 1: DASHBOARD -->
+                <div class="tab-panel active" id="panel-dashboard">
+                    <!-- Grid de Cards de Estatísticas -->
+                    <div class="metrics-grid">
+                        <div class="metric-card income">
+                            <div class="card-header">
+                                <span>Receita Total Estimada</span>
+                                <div class="card-icon green">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+                                </div>
+                            </div>
+                            <div class="card-value" id="card-income-value">R$ 0,00</div>
+                            <div class="card-footer">
+                                <span class="badge green" id="card-income-fixed">Salário: R$ 0,00</span>
+                                <span class="badge blue" id="card-income-variable">Extra/Média: R$ 0,00</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-card expenses-fixed">
+                            <div class="card-header">
+                                <span>Despesas Fixas</span>
+                                <div class="card-icon red">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                                </div>
+                            </div>
+                            <div class="card-value" id="card-expenses-fixed-value">R$ 0,00</div>
+                            <div class="card-footer">
+                                <span class="progress-bar-container">
+                                    <span class="progress-bar" id="fixed-progress" style="width: 0%"></span>
+                                </span>
+                                <span class="progress-text" id="fixed-ratio-text">0% da renda</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-card expenses-variable">
+                            <div class="card-header">
+                                <span>Despesas Variáveis</span>
+                                <div class="card-icon orange">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                                </div>
+                            </div>
+                            <div class="card-value" id="card-expenses-var-value">R$ 0,00</div>
+                            <div class="card-footer">
+                                <span class="badge orange" id="var-average-badge">Média diária: R$ 0,00</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-card balance">
+                            <div class="card-header">
+                                <span>Sobra Estimada (Mensal)</span>
+                                <div class="card-icon violet">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                                </div>
+                            </div>
+                            <div class="card-value" id="card-balance-value">R$ 0,00</div>
+                            <div class="card-footer">
+                                <span class="savings-rate-label" id="savings-rate-text">Economia: 0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Layout Principal em duas colunas -->
+                    <div class="dashboard-grid">
+                        <!-- Coluna da Esquerda: Gráficos -->
+                        <div class="dashboard-charts">
+                            <div class="chart-container-box main-chart-box">
+                                <div class="chart-header">
+                                    <h3>Evolução Patrimonial & Projeções IA</h3>
+                                    <div class="chart-actions">
+                                        <button class="chart-btn active" id="proj-3m" onclick="updateProjectionChart(3)">3 Meses</button>
+                                        <button class="chart-btn" id="proj-6m" onclick="updateProjectionChart(6)">6 Meses</button>
+                                        <button class="chart-btn" id="proj-12m" onclick="updateProjectionChart(12)">12 Meses</button>
+                                    </div>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="patrimony-chart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="secondary-charts-grid">
+                                <div class="chart-container-box">
+                                    <div class="chart-header">
+                                        <h3>Distribuição de Categorias</h3>
+                                    </div>
+                                    <div class="chart-wrapper doughnut-wrapper">
+                                        <canvas id="category-chart"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <div class="chart-container-box">
+                                    <div class="chart-header">
+                                        <h3>Classificação dos Gastos</h3>
+                                    </div>
+                                    <div class="chart-wrapper doughnut-wrapper">
+                                        <canvas id="necessity-chart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Coluna da Direita: Indicadores e Dicas IA -->
+                        <div class="dashboard-insights-panel">
+                            <!-- Indicadores rápidos -->
+                            <div class="glass-panel indicators-card">
+                                <h3>Indicadores de Otimização</h3>
+                                <div class="indicator-row">
+                                    <div class="ind-desc">
+                                        <span class="ind-name">Taxa de Comprometimento</span>
+                                        <span class="ind-info">Ideal: Abaixo de 80%</span>
+                                    </div>
+                                    <div class="ind-bar-wrapper">
+                                        <div class="ind-bar red-fill" id="compromised-bar" style="width: 0%"></div>
+                                    </div>
+                                    <span class="ind-percentage" id="compromised-percentage">0%</span>
+                                </div>
+
+                                <div class="indicator-row">
+                                    <div class="ind-desc">
+                                        <span class="ind-name">Reserva de Emergência</span>
+                                        <span class="ind-info" id="emergency-months-status">Meta: 6 meses de gastos</span>
+                                    </div>
+                                    <div class="ind-bar-wrapper">
+                                        <div class="ind-bar blue-fill" id="emergency-bar" style="width: 0%"></div>
+                                    </div>
+                                    <span class="ind-percentage" id="emergency-percentage">0%</span>
+                                </div>
+
+                                <div class="indicator-row">
+                                    <div class="ind-desc">
+                                        <span class="ind-name">Capacidade de Investimento</span>
+                                        <span class="ind-info">Excluindo despesas essenciais</span>
+                                    </div>
+                                    <div class="ind-bar-wrapper">
+                                        <div class="ind-bar green-fill" id="investment-bar" style="width: 0%"></div>
+                                    </div>
+                                    <span class="ind-percentage" id="investment-percentage">0%</span>
+                                </div>
+                            </div>
+
+                            <!-- Caixa do Consultor Proativo -->
+                            <div class="glass-panel advisor-card">
+                                <div class="advisor-header">
+                                    <div class="advisor-avatar">AI</div>
+                                    <div class="advisor-title">
+                                        <h4>Diagnóstico do Consultor</h4>
+                                        <span class="badge-live">ONLINE</span>
+                                    </div>
+                                </div>
+                                <div class="advisor-body">
+                                    <p class="advisor-greeting" id="advisor-verdict">Aguardando preenchimento do perfil financeiro...</p>
+                                    <div class="bullet-insights" id="advisor-bullets">
+                                        <!-- Preenchido dinamicamente -->
+                                    </div>
+                                </div>
+                                <div class="advisor-footer">
+                                    <button class="advisor-btn" onclick="switchTab('simulador')">
+                                        Perguntar sobre compra ou cenários
+                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA 2: TRANSAÇÕES / CONTROLE -->
+                <div class="tab-panel" id="panel-transacoes">
+                    <div class="transactions-layout">
+                        <!-- Coluna Formulário -->
+                        <div class="form-container">
+                            <div class="glass-panel form-box">
+                                <h3>Adicionar Novo Lançamento</h3>
+                                <form id="transaction-form" onsubmit="handleTransactionSubmit(event)">
+                                    <div class="form-group">
+                                        <label for="trans-desc">Descrição / Estabelecimento</label>
+                                        <input type="text" id="trans-desc" placeholder="Ex: Supermercado Carrefour, Uber, Aluguel" required autocomplete="off">
+                                        <span class="input-helper">A IA tentará categorizar automaticamente.</span>
+                                    </div>
+
+                                    <div class="form-row-grid">
+                                        <div class="form-group">
+                                            <label for="trans-value">Valor (R$)</label>
+                                            <input type="number" step="0.01" id="trans-value" placeholder="0,00" required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="trans-type">Tipo</label>
+                                            <select id="trans-type" onchange="toggleCategoryOptions()">
+                                                <option value="expense-variable">Despesa Variável</option>
+                                                <option value="expense-fixed">Despesa Fixa (Mensal)</option>
+                                                <option value="income-extra">Receita Extra</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group" id="category-group">
+                                        <label for="trans-category">Categoria</label>
+                                        <select id="trans-category">
+                                            <option value="Alimentação">Alimentação / Mercado</option>
+                                            <option value="Transporte">Transporte / Combustível</option>
+                                            <option value="Lazer">Lazer / Restaurantes</option>
+                                            <option value="Saúde">Saúde / Farmácia</option>
+                                            <option value="Moradia">Moradia / Contas domésticas</option>
+                                            <option value="Outros">Outros / Supérfluos</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-row-grid inline-checkboxes">
+                                        <div class="checkbox-group">
+                                            <input type="checkbox" id="trans-essential" checked>
+                                            <label for="trans-essential">Gasto Essencial (Sobrevivência)</label>
+                                        </div>
+                                        <div class="checkbox-group" id="installment-group">
+                                            <input type="checkbox" id="trans-installment" onchange="toggleInstallmentMonths()">
+                                            <label for="trans-installment">Gasto Parcelado?</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group hidden" id="installment-months-group">
+                                        <label for="trans-install-months">Número de Parcelas</label>
+                                        <input type="number" id="trans-install-months" min="2" max="48" value="2">
+                                    </div>
+
+                                    <button type="submit" class="submit-btn green-btn">Confirmar Lançamento</button>
+                                </form>
+                            </div>
+
+                            <div class="glass-panel setup-profile-box">
+                                <h3>Ajustar Perfil Financeiro Base</h3>
+                                <form id="profile-form" onsubmit="handleProfileSubmit(event)">
+                                    <div class="form-row-grid">
+                                        <div class="form-group">
+                                            <label for="prof-salary">Salário Fixo Líquido</label>
+                                            <input type="number" step="0.01" id="prof-salary" placeholder="Ex: 5000,00" value="4500.00" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="prof-other-income">Outras Rendas Médias</label>
+                                            <input type="number" step="0.01" id="prof-other-income" placeholder="Ex: 800,00" value="1200.00">
+                                        </div>
+                                    </div>
+
+                                    <h4 class="sub-form-title">Despesas Fixas Mensais Iniciais</h4>
+                                    <div class="form-row-grid select-3-cols">
+                                        <div class="form-group">
+                                            <label for="prof-rent">Aluguel / Prestação</label>
+                                            <input type="number" step="0.01" id="prof-rent" value="1200.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="prof-consortium">Consórcio / Financiamento</label>
+                                            <input type="number" step="0.01" id="prof-consortium" value="450.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="prof-card">Cartão de Crédito (Médio)</label>
+                                            <input type="number" step="0.01" id="prof-card" value="1500.00">
+                                        </div>
+                                    </div>
+                                    <div class="form-row-grid">
+                                        <div class="form-group">
+                                            <label for="prof-bills">Contas Gerais (Água/Luz/Internet)</label>
+                                            <input type="number" step="0.01" id="prof-bills" value="350.00">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="prof-market">Mercado / Essencial</label>
+                                            <input type="number" step="0.01" id="prof-market" value="800.00">
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="submit-btn gray-btn">Atualizar Perfil Base</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Coluna Lista de Transações -->
+                        <div class="transactions-list-panel">
+                            <!-- SELETOR DE MÊS -->
+                            <div class="month-navigator glass-panel" style="margin-bottom:1rem;">
+                                <button id="btn-prev-month" class="month-nav-btn" onclick="navigateMonth(-1)" title="Mês anterior">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                </button>
+                                <div class="month-nav-info">
+                                    <span class="month-nav-label" id="active-month-label">Maio 2026</span>
+                                    <span class="month-nav-sub">Mês selecionado</span>
+                                </div>
+                                <button id="btn-next-month" class="month-nav-btn" onclick="navigateMonth(1)" title="Próximo mês">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                </button>
+                            </div>
+                            <div class="glass-panel list-box">
+                                <div class="list-header">
+                                    <h3>Histórico de Transações Recentes</h3>
+                                    <div class="filter-actions">
+                                        <button class="filter-btn active" onclick="filterTransactions('all')">Todas</button>
+                                        <button class="filter-btn" onclick="filterTransactions('expense')">Despesas</button>
+                                        <button class="filter-btn" onclick="filterTransactions('income')">Receitas</button>
+                                    </div>
+                                </div>
+                                <div class="transactions-table-wrapper">
+                                    <table class="transactions-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Descrição</th>
+                                                <th>Categoria</th>
+                                                <th>Tipo</th>
+                                                <th>Essencial</th>
+                                                <th>Valor</th>
+                                                <th>Ação</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="transactions-tbody">
+                                            <!-- Inserido dinamicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA 5: HISTÓRICO MENSAL -->
+                <div class="tab-panel" id="panel-historico">
+                    <div class="glass-panel" style="padding: 1.5rem;">
+                        <div class="list-header" style="margin-bottom:1.5rem;">
+                            <h3>📅 Histórico por Mês</h3>
+                            <span style="color:var(--text-muted);font-size:0.85rem;">Clique em "Ver" para carregar as transações do mês</span>
+                        </div>
+                        <div class="transactions-table-wrapper">
+                            <table class="transactions-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mês</th>
+                                        <th>Receita Total</th>
+                                        <th>Gastos Totais</th>
+                                        <th>Saldo</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-tbody">
+                                    <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem;">Carregando histórico...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA 3: METAS & RESERVA -->
+                <div class="tab-panel" id="panel-metas">
+                    <div class="metas-layout">
+                        <!-- Lado Esquerdo: Reserva de Emergência Foco -->
+                        <div class="glass-panel emergency-reserve-card">
+                            <div class="reserve-highlight">
+                                <div class="reserve-badge">FOCO PRINCIPAL</div>
+                                <h2>Reserva de Emergência</h2>
+                                <p class="reserve-desc">Colchão de segurança financeira para cobrir suas despesas fixas fundamentais em caso de imprevistos. O recomendado são no mínimo 6 meses.</p>
+                                
+                                <div class="reserve-visual">
+                                    <div class="reserve-shield">
+                                        <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                        <span class="reserve-months-counter" id="emergency-months-count">0.0</span>
+                                        <span class="reserve-months-lbl">Meses</span>
+                                    </div>
+                                </div>
+
+                                <div class="reserve-math-stats">
+                                    <div class="math-item">
+                                        <span class="math-lbl">Despesa Mensal Segura</span>
+                                        <span class="math-val" id="reserve-monthly-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="math-item">
+                                        <span class="math-lbl">Meta de Reserva (6M)</span>
+                                        <span class="math-val" id="reserve-target-value">R$ 0,00</span>
+                                    </div>
+                                    <div class="math-item">
+                                        <span class="math-lbl">Valor Atual Acumulado</span>
+                                        <span class="math-val highlight-green" id="reserve-current-value">R$ 0,00</span>
+                                    </div>
+                                </div>
+
+                                <div class="reserve-input-group">
+                                    <label for="update-reserve-input">Adicionar/Ajustar valor guardado na Reserva (R$)</label>
+                                    <div class="input-with-button">
+                                        <input type="number" id="update-reserve-input" placeholder="Ex: 5000">
+                                        <button onclick="updateEmergencyReserve()" class="green-btn">Salvar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lado Direito: Outras Metas -->
+                        <div class="metas-manager-panel">
+                            <div class="glass-panel metas-list-box">
+                                <div class="list-header">
+                                    <h3>Suas Metas Financeiras</h3>
+                                    <button class="add-goal-btn" onclick="openNewGoalModal()">+ Nova Meta</button>
+                                </div>
+                                <div class="goals-container" id="goals-list-container">
+                                    <!-- Inserido dinamicamente -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA 4: SIMULADOR IA & CHAT -->
+                <div class="tab-panel" id="panel-simulador">
+                    <div class="simulador-layout">
+                        <!-- Lado Esquerdo: Simulador de Cenários Sandbox -->
+                        <div class="glass-panel sandbox-card">
+                            <h3>Sandbox de Simulação de Cenários</h3>
+                            <p class="sandbox-desc">Simule modificações em seu orçamento e observe em tempo real o impacto nas suas projeções financeiras de longo prazo.</p>
+                            
+                            <div class="sandbox-sliders">
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <label for="slide-salary">Aumento Salarial Líquido</label>
+                                        <span class="slider-value" id="val-slide-salary">+ R$ 0</span>
+                                    </div>
+                                    <input type="range" id="slide-salary" min="0" max="5000" step="100" value="0" oninput="runSandboxSimulation()">
+                                </div>
+
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <label for="slide-rent-cut">Redução de Despesa de Moradia (%)</label>
+                                        <span class="slider-value" id="val-slide-rent">0%</span>
+                                    </div>
+                                    <input type="range" id="slide-rent-cut" min="0" max="50" step="5" value="0" oninput="runSandboxSimulation()">
+                                </div>
+
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <label for="slide-extra-savings">Economia Adicional Mensal (Investimento)</label>
+                                        <span class="slider-value" id="val-slide-savings">R$ 0</span>
+                                    </div>
+                                    <input type="range" id="slide-extra-savings" min="0" max="2000" step="50" value="0" oninput="runSandboxSimulation()">
+                                </div>
+                            </div>
+
+                            <div class="simulation-impact-box">
+                                <h4>Impacto Projetado pela IA</h4>
+                                <div class="impact-stats-grid">
+                                    <div class="impact-item">
+                                        <span class="impact-lbl">Nova Sobra Mensal</span>
+                                        <span class="impact-val" id="sim-new-surplus">R$ 0,00</span>
+                                    </div>
+                                    <div class="impact-item">
+                                        <span class="impact-lbl">Patrimônio em 12 Meses</span>
+                                        <span class="impact-val highlight-green" id="sim-new-patrimony">R$ 0,00</span>
+                                    </div>
+                                    <div class="impact-item">
+                                        <span class="impact-lbl">Tempo para bater Reserva</span>
+                                        <span class="impact-val" id="sim-reserve-time">Atingida</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lado Direito: IA Chat Assistant -->
+                        <div class="glass-panel ai-chat-card">
+                            <div class="chat-header-box">
+                                <div class="chat-agent-info">
+                                    <div class="chat-avatar">PT</div>
+                                    <div>
+                                        <h4>Consultor Polly e Thi finance</h4>
+                                        <span class="chat-sub">Faça perguntas sobre compras, dívidas ou investimentos</span>
+                                    </div>
+                                </div>
+                                <button class="clear-chat-btn" onclick="clearChat()">Limpar</button>
+                            </div>
+
+                            <!-- Caixa de Mensagens -->
+                            <div class="chat-messages" id="chat-messages-container">
+                                <div class="message system">
+                                    Olá! Eu sou o assistente Polly e Thi finance. Analisei suas finanças atuais. 
+                                    Você pode me perguntar se uma nova compra cabe no seu orçamento, simular parcelamentos ou pedir dicas para cortar gastos.
+                                </div>
+                                <!-- Mensagens dinâmicas vão aqui -->
+                            </div>
+
+                            <!-- Sugestões de perguntas rápidas -->
+                            <div class="chat-quick-suggestions">
+                                <button class="suggestion-chip" onclick="askAIConsultant('Posso comprar um celular de R$ 3000 parcelado em 10x?')">Comprar Celular de R$ 3000 (10x)?</button>
+                                <button class="suggestion-chip" onclick="askAIConsultant('Como posso montar minha reserva de emergência mais rápido?')">Como acelerar reserva?</button>
+                                <button class="suggestion-chip" onclick="askAIConsultant('Faça um raio-x do meu padrão de consumo e sugira cortes.')">Raio-x de Consumo</button>
+                                <button class="suggestion-chip" onclick="askAIConsultant('Corro o risco de ficar no vermelho se gastar R$ 500 extras?')">Risco de Déficit com R$ 500 extras</button>
+                            </div>
+
+                            <!-- Campo de Entrada -->
+                            <form id="chat-input-form" onsubmit="handleChatSubmit(event)">
+                                <div class="chat-input-wrapper">
+                                    <input type="text" id="chat-user-message" placeholder="Pergunte sobre uma compra ou estabilidade financeira..." required autocomplete="off">
+                                    <button type="submit" class="send-message-btn">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL 1: ADICIONAR META -->
+    <div class="modal-backdrop" id="goal-modal" style="display: none;">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3>Criar Nova Meta Financeira</h3>
+                <button class="close-modal-btn" onclick="closeGoalModal()">&times;</button>
+            </div>
+            <form id="goal-form" onsubmit="handleGoalSubmit(event)">
+                <div class="form-group">
+                    <label for="goal-title">Nome do Objetivo</label>
+                    <input type="text" id="goal-title" placeholder="Ex: Viagem de Férias, Notebook Novo, Entrada do Carro" required>
+                </div>
+                <div class="form-row-grid">
+                    <div class="form-group">
+                        <label for="goal-target">Valor Alvo (R$)</label>
+                        <input type="number" id="goal-target" placeholder="Ex: 5000.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="goal-saved">Valor Inicial Guardado (R$)</label>
+                        <input type="number" id="goal-saved" placeholder="Ex: 500.00" value="0">
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn green-btn">Criar Meta</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: DETALHES SAÚDE FINANCEIRA -->
+    <div class="modal-backdrop" id="health-modal" style="display: none;">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3>Detalhamento da Saúde Financeira</h3>
+                <button class="close-modal-btn" onclick="closeHealthModal()">&times;</button>
+            </div>
+            <div class="health-breakdown-details">
+                <div class="health-score-card">
+                    <span class="health-score-lbl">Sua pontuação</span>
+                    <h2 id="modal-health-score">85%</h2>
+                    <span class="health-score-status" id="modal-health-status">Saudável</span>
+                </div>
+                <div class="health-rules-list">
+                    <div class="rule-item" id="rule-surplus">
+                        <div class="rule-icon">&#10004;</div>
+                        <div class="rule-desc">
+                            <h5>Regra dos 20% Livres</h5>
+                            <p id="rule-surplus-desc">Você mantém 25% da sua renda livre para poupar ou investir. Excelente!</p>
+                        </div>
+                    </div>
+                    <div class="rule-item" id="rule-commitment">
+                        <div class="rule-icon">&#10004;</div>
+                        <div class="rule-desc">
+                            <h5>Comprometimento Limite</h5>
+                            <p id="rule-commitment-desc">Seus gastos fixos estão em 68% da renda (abaixo do teto crítico de 80%).</p>
+                        </div>
+                    </div>
+                    <div class="rule-item" id="rule-reserve">
+                        <div class="rule-icon">&#9888;</div>
+                        <div class="rule-desc">
+                            <h5>Reserva de Emergência</h5>
+                            <p id="rule-reserve-desc">Sua reserva atual cobre apenas 2.5 meses de custos essenciais. Meta ideal: 6 meses.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
