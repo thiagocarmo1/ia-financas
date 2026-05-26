@@ -9,19 +9,6 @@ const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 const webpush = require('web-push');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-// Configuração Gemini AI
-let genAI;
-const initGemini = () => {
-    const key = process.env.GEMINI_API_KEY;
-    if (key && !genAI) {
-        console.log('Gemini AI: Chave detectada, inicializando motor...');
-        genAI = new GoogleGenerativeAI(key);
-    }
-    return genAI;
-};
-initGemini();
 
 // Configuração VAPID para notificações Push
 const VAPID_KEYS_FILE = path.join(__dirname, 'data', 'vapid-keys.json');
@@ -45,24 +32,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
 
-console.log('--- DIAGNÓSTICO DE INICIALIZAÇÃO ---');
-console.log('DATABASE_URL está presente?', !!DATABASE_URL);
-if (DATABASE_URL) {
-    console.log('DATABASE_URL prefixo:', DATABASE_URL.substring(0, 20) + '...');
-}
-console.log('PORT:', PORT);
-console.log('------------------------------------');
-
-if (!DATABASE_URL) {
-    console.error('ERRO: DATABASE_URL não definida no arquivo .env');
-    process.exit(1);
-}
-
 // Configuração do Pool de Conexão com Supabase
 const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    // Forçar IPv4 na resolução de DNS para evitar ENETUNREACH
     lookup: (hostname, options, callback) => {
         dns.lookup(hostname, { family: 4 }, callback);
     }
@@ -80,7 +53,6 @@ app.use(express.static(__dirname));
 
 async function initDB() {
     try {
-        // Criar tabela de usuários se não existir
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -95,10 +67,8 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        // Adicionar coluna se não existir (para usuários antigos)
         await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS push_subscription JSONB');
-        console.log('Banco de dados (PostgreSQL/Supabase) pronto!');
-        
+        console.log('Banco de dados pronto!');
         await migrateFromJson();
     } catch (err) {
         console.error('Erro ao inicializar banco:', err);
@@ -111,323 +81,158 @@ initDB();
 async function migrateFromJson() {
     const DB_FILE = path.join(__dirname, 'data', 'database.json');
     if (!fs.existsSync(DB_FILE)) return;
-
     try {
         const { rows } = await pool.query('SELECT count(*) FROM users');
         if (parseInt(rows[0].count) > 0) return;
-
-        console.log('Migrando dados do database.json para o Supabase...');
         const localData = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-
         if (localData.users && localData.users.length > 0) {
             for (const u of localData.users) {
                 await pool.query(
                     'INSERT INTO users (name, email, password, profile, goals, emergency_reserve, months) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-                    [
-                        u.name, 
-                        u.email.toLowerCase(), 
-                        u.password, 
-                        JSON.stringify(u.profile || {}), 
-                        JSON.stringify(u.goals || []), 
-                        u.emergencyReserve || 0, 
-                        JSON.stringify(u.months || {})
-                    ]
+                    [u.name, u.email.toLowerCase(), u.password, JSON.stringify(u.profile || {}), JSON.stringify(u.goals || []), u.emergencyReserve || 0, JSON.stringify(u.months || {})]
                 );
             }
-            console.log(`${localData.users.length} usuários migrados com sucesso!`);
         }
-    } catch (e) {
-        console.error('Erro na migração inicial:', e);
-    }
+    } catch (e) { console.error('Erro migração:', e); }
 }
 
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 
 app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
-    if (!name || !email || !password)
-        return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
-
+    if (!name || !email || !password) return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
     try {
-        console.log(`Tentando registrar usuário: ${email}`);
-        const result = await pool.query(
-            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
-            [name, email.toLowerCase(), password]
-        );
-        const newUser = result.rows[0];
-        console.log(`Novo usuário registrado com sucesso: ${name} (${email})`);
-        res.status(201).json({ success: true, user: { id: newUser.id, name: newUser.name, email: newUser.email } });
+        const result = await pool.query('INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email', [name, email.toLowerCase(), password]);
+        res.status(201).json({ success: true, user: result.rows[0] });
     } catch (e) {
-        console.error('ERRO NO REGISTRO:', e);
         if (e.code === '23505') return res.status(400).json({ error: 'Este e-mail já está cadastrado.' });
-        res.status(500).json({ error: 'Erro interno no servidor ao registrar usuário. Verifique os logs do servidor.' });
+        res.status(500).json({ error: 'Erro ao registrar.' });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const { rows } = await pool.query(
-            'SELECT id, name, email FROM users WHERE email = $1 AND password = $2',
-            [email.toLowerCase(), password]
-        );
-        if (rows.length === 0)
-            return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
-
+        const { rows } = await pool.query('SELECT id, name, email FROM users WHERE email = $1 AND password = $2', [email.toLowerCase(), password]);
+        if (rows.length === 0) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
         res.json({ success: true, user: rows[0] });
     } catch (e) {
-        res.status(500).json({ error: 'Erro ao fazer login.' });
+        console.error('Login error:', e);
+        res.status(500).json({ error: 'Erro no servidor ao logar.' });
     }
 });
 
 // ==================== ROTAS FINANCEIRAS ====================
 
-app.get('/api/financials', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+const getUserId = (req) => parseInt(req.headers['x-user-id']);
 
+app.get('/api/financials', async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
     try {
         const { rows } = await pool.query('SELECT profile, goals, emergency_reserve, months FROM users WHERE id = $1', [userId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
-
         const user = rows[0];
         const monthSummaries = {};
-        
         Object.entries(user.months || {}).forEach(([key, data]) => {
             const txs = data.transactions || [];
             const income = txs.filter(t => t.type === 'income-extra').reduce((s, t) => s + t.value, 0);
             const expenses = txs.filter(t => t.type.startsWith('expense')).reduce((s, t) => s + t.value, 0);
-            monthSummaries[key] = {
-                transactionCount: txs.length,
-                totalIncome: income,
-                totalExpenses: expenses,
-                balance: income - expenses,
-                closingBalance: data.closingBalance || 0
-            };
+            monthSummaries[key] = { transactionCount: txs.length, totalIncome: income, totalExpenses: expenses, balance: income - expenses, closingBalance: data.closingBalance || 0 };
         });
-
-        res.json({
-            success: true,
-            profile: user.profile,
-            goals: user.goals,
-            emergencyReserve: parseFloat(user.emergency_reserve),
-            months: monthSummaries
-        });
-    } catch (e) {
-        res.status(500).json({ error: 'Erro ao carregar dados.' });
-    }
+        res.json({ success: true, profile: user.profile, goals: user.goals, emergencyReserve: parseFloat(user.emergency_reserve), months: monthSummaries });
+    } catch (e) { res.status(500).json({ error: 'Erro carregar dados.' }); }
 });
 
 app.post('/api/financials', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+    const userId = getUserId(req);
     const { profile, goals, emergencyReserve } = req.body;
-
     try {
         if (profile) await pool.query('UPDATE users SET profile = $1 WHERE id = $2', [JSON.stringify(profile), userId]);
         if (goals !== undefined) await pool.query('UPDATE users SET goals = $1 WHERE id = $2', [JSON.stringify(goals), userId]);
         if (emergencyReserve !== undefined) await pool.query('UPDATE users SET emergency_reserve = $1 WHERE id = $2', [emergencyReserve, userId]);
-        
-        res.json({ success: true, message: 'Perfil salvo com sucesso!' });
-    } catch (e) {
-        res.status(500).json({ error: 'Erro ao salvar perfil.' });
-    }
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: 'Erro salvar.' }); }
 });
 
 app.get('/api/months/:yearMonth', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+    const userId = getUserId(req);
     const { yearMonth } = req.params;
-
     try {
         const { rows } = await pool.query('SELECT months FROM users WHERE id = $1', [userId]);
-        if (rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
-
         const monthData = rows[0].months[yearMonth] || { transactions: [], closingBalance: 0 };
         res.json({ success: true, yearMonth, transactions: monthData.transactions, closingBalance: monthData.closingBalance });
-    } catch (e) {
-        res.status(500).json({ error: 'Erro ao carregar mês.' });
-    }
+    } catch (e) { res.status(500).json({ error: 'Erro carregar mês.' }); }
 });
 
 app.post('/api/months/:yearMonth/transactions', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+    const userId = getUserId(req);
     const { yearMonth } = req.params;
-    const transaction = req.body;
-
     try {
         const { rows } = await pool.query('SELECT months FROM users WHERE id = $1', [userId]);
         let months = rows[0].months || {};
-        
         if (!months[yearMonth]) months[yearMonth] = { transactions: [], closingBalance: 0 };
-        months[yearMonth].transactions.push(transaction);
-
+        months[yearMonth].transactions.push(req.body);
         await pool.query('UPDATE users SET months = $1 WHERE id = $2', [JSON.stringify(months), userId]);
         res.status(201).json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: 'Erro ao adicionar transação.' });
-    }
+    } catch (e) { res.status(500).json({ error: 'Erro add.' }); }
 });
 
 app.delete('/api/months/:yearMonth/transactions/:id', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+    const userId = getUserId(req);
     const { yearMonth, id } = req.params;
-    const transId = parseInt(id);
-
     try {
         const { rows } = await pool.query('SELECT months FROM users WHERE id = $1', [userId]);
         let months = rows[0].months || {};
-        
         if (months[yearMonth]) {
-            months[yearMonth].transactions = months[yearMonth].transactions.filter(t => t.id !== transId);
+            months[yearMonth].transactions = months[yearMonth].transactions.filter(t => t.id !== parseInt(id));
             await pool.query('UPDATE users SET months = $1 WHERE id = $2', [JSON.stringify(months), userId]);
         }
         res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: 'Erro ao remover transação.' });
-    }
+    } catch (e) { res.status(500).json({ error: 'Erro del.' }); }
 });
 
 app.patch('/api/months/:yearMonth/closing', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+    const userId = getUserId(req);
     const { yearMonth } = req.params;
-    const { closingBalance } = req.body;
-
     try {
         const { rows } = await pool.query('SELECT months FROM users WHERE id = $1', [userId]);
         let months = rows[0].months || {};
-        
         if (!months[yearMonth]) months[yearMonth] = { transactions: [], closingBalance: 0 };
-        months[yearMonth].closingBalance = closingBalance;
-
+        months[yearMonth].closingBalance = req.body.closingBalance;
         await pool.query('UPDATE users SET months = $1 WHERE id = $2', [JSON.stringify(months), userId]);
         res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: 'Erro ao salvar fechamento.' });
-    }
+    } catch (e) { res.status(500).json({ error: 'Erro closing.' }); }
 });
 
-// ==================== ROTAS DE NOTIFICAÇÃO PUSH ====================
-
-app.get('/api/notifications/vapid-public-key', (req, res) => {
-    res.json({ publicKey: vapidKeys.publicKey });
-});
-
+app.get('/api/notifications/vapid-public-key', (req, res) => res.json({ publicKey: vapidKeys.publicKey }));
 app.post('/api/notifications/subscribe', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
-    const { subscription } = req.body;
-
+    const userId = getUserId(req);
     try {
-        await pool.query('UPDATE users SET push_subscription = $1 WHERE id = $2', [JSON.stringify(subscription), userId]);
+        await pool.query('UPDATE users SET push_subscription = $1 WHERE id = $2', [JSON.stringify(req.body.subscription), userId]);
         res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: 'Erro ao salvar inscrição de notificação.' });
-    }
+    } catch (e) { res.status(500).json({ error: 'Erro sub.' }); }
 });
 
-// Rota de trigger manual para testes ou para ser chamada por um cron-job
 app.post('/api/notifications/check-vencimentos', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
         const { rows: users } = await pool.query('SELECT id, name, months, push_subscription FROM users WHERE push_subscription IS NOT NULL');
-
-        let notificationsSent = 0;
-
+        let sent = 0;
         for (const user of users) {
-            const months = user.months || {};
-            // Procurar transações pendentes para hoje em todos os meses (foco no atual)
             let pendingToday = [];
-            Object.values(months).forEach(m => {
-                const txs = m.transactions || [];
-                const found = txs.filter(t => t.pending && t.dueDate === today);
-                pendingToday = [...pendingToday, ...found];
+            Object.values(user.months || {}).forEach(m => {
+                pendingToday = [...pendingToday, ...(m.transactions || []).filter(t => t.pending && t.dueDate === today)];
             });
-
             if (pendingToday.length > 0 && user.push_subscription) {
-                const payload = JSON.stringify({
-                    title: 'Lembrete de Vencimento 📅',
-                    body: `Olá ${user.name.split(' ')[0]}, você tem ${pendingToday.length} conta(s) vencendo hoje!`,
-                    icon: '/app_icon.png'
-                });
-
                 try {
-                    await webpush.sendNotification(user.push_subscription, payload);
-                    notificationsSent++;
-                } catch (err) {
-                    console.error(`Erro ao enviar notificação para user ${user.id}:`, err);
-                    if (err.statusCode === 410) {
-                        // Inscrição expirada
-                        await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
-                    }
-                }
+                    await webpush.sendNotification(user.push_subscription, JSON.stringify({ title: 'Lembrete 📅', body: `Você tem ${pendingToday.length} conta(s) vencendo hoje!`, icon: '/app_icon.png' }));
+                    sent++;
+                } catch (err) { if (err.statusCode === 410) await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]); }
             }
         }
-
-        res.json({ success: true, sent: notificationsSent });
-    } catch (e) {
-        console.error('Erro ao verificar vencimentos:', e);
-        res.status(500).json({ error: 'Erro interno ao processar notificações.' });
-    }
+        res.json({ success: true, sent });
+    } catch (e) { res.status(500).json({ error: 'Erro check.' }); }
 });
 
-// ==================== ROTAS DE IA (GEMINI) ====================
-
-app.post('/api/ai/chat', async (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
-    
-    const ai = initGemini();
-    if (!ai) {
-        console.error('ERRO: GEMINI_API_KEY não encontrada nas variáveis de ambiente da Render.');
-        return res.status(503).json({ error: 'Serviço de IA não configurado no servidor.' });
-    }
-
-    const { message, context } = req.body;
-
-    try {
-        console.log(`IA: Processando pergunta para o usuário ${userId}...`);
-        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-        
-        // Construir prompt com contexto financeiro
-        const systemPrompt = `Você é o "Finances.AI", um consultor financeiro proativo e inteligente para a aplicação "Polly e Thi finance".
-Seu objetivo é ajudar o usuário a tomar decisões financeiras melhores com base em seus dados REAIS.
-
-CONTEXTO DO USUÁRIO:
-- Perfil: ${JSON.stringify(context.profile)}
-- Reserva de Emergência Atual: R$ ${context.emergencyReserve}
-- Metas Ativas: ${JSON.stringify(context.goals)}
-- Mês Atual (${context.activeMonth}) Resumo: Receitas R$ ${context.summary.income}, Despesas R$ ${context.summary.expenses}, Saldo R$ ${context.summary.balance}.
-- Transações do Mês: ${JSON.stringify(context.transactions.map(t => ({ desc: t.desc, val: t.value, cat: t.category })))}
-
-DIRETRIZES:
-1. Seja amigável, direto e use um tom de consultor premium.
-2. Sempre que possível, cite números dos dados acima para validar sua resposta.
-3. Se o usuário estiver no vermelho, sugira cortes específicos.
-4. Use formatação Markdown (negrito, listas) para facilitar a leitura.
-5. Nunca dê conselhos de investimento arriscados, foque em educação financeira.
-
-MENSAGEM DO USUÁRIO: "${message}"`;
-
-        const result = await model.generateContent(systemPrompt);
-        const response = await result.response;
-        const text = response.text();
-
-        console.log(`IA: Resposta gerada com sucesso para o usuário ${userId}.`);
-        res.json({ success: true, answer: text });
-    } catch (e) {
-        console.error('ERRO NA API DO GEMINI:', e.message);
-        res.status(500).json({ error: 'Erro ao processar consulta de IA: ' + e.message });
-    }
-});
-
-// ==================== INICIALIZAÇÃO ====================
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`===========================================================`);
-    console.log(` Servidor Polly e Thi finance rodando (SUPABASE/POSTGRES)!`);
-    console.log(` Local: http://localhost:${PORT}`);
-    console.log(`===========================================================`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`Servidor rodando porta ${PORT}`));

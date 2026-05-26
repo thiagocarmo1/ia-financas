@@ -1390,7 +1390,7 @@ function updateAIConsultantWelcome() {
     const balance = totalIncome - (totalFixed + totalVar);
     const months = state.emergencyReserve / (totalFixed > 0 ? totalFixed : 1000);
     
-    let welcomeMsg = `Olá! Sou o seu consultor financeiro **Polly e Thi finance** 🤖. (v3.0 - IA Ativa)<br><br>`;
+    let welcomeMsg = `Olá! Sou o seu consultor financeiro **Polly e Thi finance** 🤖.<br><br>`;
     welcomeMsg += `Analisei o seu perfil atual:<br>`;
     welcomeMsg += `&bull; **Renda Total:** ${formatCurrency(totalIncome)}<br>`;
     welcomeMsg += `&bull; **Despesas Fixas:** ${formatCurrency(totalFixed)} (${((totalFixed/totalIncome)*100).toFixed(0)}% do orçamento)<br>`;
@@ -1431,20 +1431,18 @@ function handleChatSubmit(e) {
     input.value = '';
 }
 
-async function askAIConsultant(userQuery) {
-    console.log('IA: Iniciando consulta para:', userQuery);
-    
+function askAIConsultant(userQuery) {
     // 1. Exibir mensagem do usuário na tela
     addAIMessage('USER', userQuery);
     
-    // Efeito visual de digitação
+    // Efeito visual de digitação rápida
     const typingBubble = document.createElement('div');
     typingBubble.className = 'message ai typing';
     typingBubble.innerHTML = 'IA pensando...';
     chatContainer.appendChild(typingBubble);
     chatContainer.scrollTop = chatContainer.scrollHeight;
     
-    // Obter dados financeiros em tempo real para o contexto
+    // Obter dados financeiros em tempo real
     const fixedSalary = parseFloat(state.profile.salary) || 0;
     const otherIncome = parseFloat(state.profile.otherIncome) || 0;
     const rent = parseFloat(state.profile.rent) || 0;
@@ -1465,59 +1463,47 @@ async function askAIConsultant(userQuery) {
     const totalFixed = rent + consortium + card + bills + market + dynamicFixedSum;
     const totalVar = state.transactions.filter(t => t.type === 'expense-variable').reduce((acc, t) => acc + t.value, 0);
     const balance = totalIncome - (totalFixed + totalVar);
-
-    const context = {
-        profile: state.profile,
-        emergencyReserve: state.emergencyReserve,
-        goals: state.goals,
-        activeMonth: state.activeMonth,
-        summary: {
-            income: totalIncome,
-            expenses: totalFixed + totalVar,
-            balance: balance
-        },
-        transactions: state.transactions
-    };
-
-    try {
-        console.log('IA: Enviando requisição para o backend...');
-        const res = await fetch('/api/ai/chat', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'x-user-id': state.currentUser ? state.currentUser.id : null
-            },
-            body: JSON.stringify({ message: userQuery, context })
-        });
-
-        const data = await res.json();
+    const safeReserveTarget = totalFixed * 6;
+    
+    setTimeout(() => {
+        // Remover a bolha de digitando
         typingBubble.remove();
-
-        if (data.answer) {
-            console.log('IA: Resposta recebida com sucesso.');
-            // Converter markdown básico (negrito e listas) para HTML
-            let formatted = data.answer
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/^\s*[\-\*]\s+(.*)$/gm, '<li>$1</li>');
+        
+        let response = '';
+        const q = userQuery.toLowerCase();
+        
+        // 2. PARSEADOR INTELIGENTE DE PERGUNTAS E INTENÇÃO FINANCEIRA
+        
+        // CASO A: SIMULAÇÃO DE COMPRA DE VALOR ESPECÍFICO
+        if (q.includes('compra') || q.includes('comprar') || q.includes('celular') || q.includes('computador') || q.includes('notebook') || q.includes('carro') || q.includes('gastar')) {
+            const matchValue = q.match(/r?\$\s?(\d+([\.,]\d+)?)/i);
+            const valueRequested = matchValue ? parseFloat(matchValue[1].replace('.', '').replace(',', '.')) : 3000;
+            const matchInstallments = q.match(/(\d+)\s?x/i);
+            const installmentsRequested = matchInstallments ? parseInt(matchInstallments[1]) : 10;
+            const monthlyInstallment = valueRequested / installmentsRequested;
             
-            if (formatted.includes('<li>')) {
-                formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+            response = `🎯 **Simulador de Impacto Financeiro da IA:**<br><br>`;
+            response += `Você deseja simular uma compra de **${formatCurrency(valueRequested)}** parcelada em **${installmentsRequested}x de ${formatCurrency(monthlyInstallment)}**.<br><br>`;
+            
+            if (balance <= 0) {
+                response += `❌ **Veredicto: Reprovado!**<br>`;
+                response += `Suas finanças estão no vermelho (${formatCurrency(Math.abs(balance))}). Adicionar mais gastos acelerará o endividamento.`;
+            } else if (monthlyInstallment > balance) {
+                response += `⚠️ **Veredicto: Inviável!**<br>`;
+                response += `Sua sobra mensal é de **${formatCurrency(balance)}**, menor que a parcela de **${formatCurrency(monthlyInstallment)}**.`;
+            } else {
+                response += `✅ **Veredicto: Possível.**<br>`;
+                response += `A parcela de **${formatCurrency(monthlyInstallment)}** cabe na sua sobra mensal.`;
             }
-
-            addAIMessage('IA', formatted);
-        } else if (data.error) {
-            console.error('IA: Erro retornado pelo servidor:', data.error);
-            addAIMessage('IA', `⚠️ **Erro no Cérebro da IA:** ${data.error}`);
+        } else if (q.includes('dica') || q.includes('economizar') || q.includes('ajuda')) {
+            response = `💡 **Dicas para sua realidade:**<br>`;
+            response += `1. Seus gastos variáveis somam **${formatCurrency(totalVar)}**. Tente reduzir 10% disso.<br>`;
+            response += `2. Sua reserva de emergência está em **${formatCurrency(state.emergencyReserve)}**. O ideal seria **${formatCurrency(safeReserveTarget)}**.`;
         } else {
-            throw new Error('Resposta vazia do servidor');
+            response = "Olá! Como posso ajudar com suas finanças hoje? Posso simular compras ou dar dicas de economia baseadas nos seus dados.";
         }
-
-    } catch (err) {
-        console.error('IA: Falha na comunicação:', err);
-        typingBubble.remove();
-        addAIMessage('IA', '❌ **IA Indisponível:** Não consegui conversar com o servidor. Verifique se a variável GEMINI_API_KEY está correta na Render.');
-    }
+        addAIMessage('IA', response);
+    }, 1000);
 }
                 if (ratioCompromised > 80) {
                     response += `🟡 **Veredicto: Risco Elevado (Média Alerta).**<br>`;
