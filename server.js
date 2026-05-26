@@ -9,6 +9,14 @@ const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 const webpush = require('web-push');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// Configuração Gemini AI
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+let genAI;
+if (GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+}
 
 // Configuração VAPID para notificações Push
 const VAPID_KEYS_FILE = path.join(__dirname, 'data', 'vapid-keys.json');
@@ -356,6 +364,52 @@ app.post('/api/notifications/check-vencimentos', async (req, res) => {
     } catch (e) {
         console.error('Erro ao verificar vencimentos:', e);
         res.status(500).json({ error: 'Erro interno ao processar notificações.' });
+    }
+});
+
+// ==================== ROTAS DE IA (GEMINI) ====================
+
+app.post('/api/ai/chat', async (req, res) => {
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
+    
+    if (!genAI) {
+        return res.status(503).json({ error: 'Serviço de IA não configurado no servidor.' });
+    }
+
+    const { message, context } = req.body;
+
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        
+        // Construir prompt com contexto financeiro
+        const systemPrompt = `Você é o "Finances.AI", um consultor financeiro proativo e inteligente para a aplicação "Polly e Thi finance".
+Seu objetivo é ajudar o usuário a tomar decisões financeiras melhores com base em seus dados REAIS.
+
+CONTEXTO DO USUÁRIO:
+- Perfil: ${JSON.stringify(context.profile)}
+- Reserva de Emergência Atual: R$ ${context.emergencyReserve}
+- Metas Ativas: ${JSON.stringify(context.goals)}
+- Mês Atual (${context.activeMonth}) Resumo: Receitas R$ ${context.summary.income}, Despesas R$ ${context.summary.expenses}, Saldo R$ ${context.summary.balance}.
+- Transações do Mês: ${JSON.stringify(context.transactions.map(t => ({ desc: t.desc, val: t.value, cat: t.category })))}
+
+DIRETRIZES:
+1. Seja amigável, direto e use um tom de consultor premium.
+2. Sempre que possível, cite números dos dados acima para validar sua resposta.
+3. Se o usuário estiver no vermelho, sugira cortes específicos.
+4. Use formatação Markdown (negrito, listas) para facilitar a leitura.
+5. Nunca dê conselhos de investimento arriscados, foque em educação financeira.
+
+MENSAGEM DO USUÁRIO: "${message}"`;
+
+        const result = await model.generateContent(systemPrompt);
+        const response = await result.response;
+        const text = response.text();
+
+        res.json({ success: true, answer: text });
+    } catch (e) {
+        console.error('Erro na API do Gemini:', e);
+        res.status(500).json({ error: 'Erro ao processar consulta de IA.' });
     }
 });
 

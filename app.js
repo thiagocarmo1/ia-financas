@@ -1431,7 +1431,7 @@ function handleChatSubmit(e) {
     input.value = '';
 }
 
-function askAIConsultant(userQuery) {
+async function askAIConsultant(userQuery) {
     // 1. Exibir mensagem do usuário na tela
     addAIMessage('USER', userQuery);
     
@@ -1442,7 +1442,7 @@ function askAIConsultant(userQuery) {
     chatContainer.appendChild(typingBubble);
     chatContainer.scrollTop = chatContainer.scrollHeight;
     
-    // Obter dados financeiros em tempo real
+    // Obter dados financeiros para o contexto da IA
     const fixedSalary = parseFloat(state.profile.salary) || 0;
     const otherIncome = parseFloat(state.profile.otherIncome) || 0;
     const rent = parseFloat(state.profile.rent) || 0;
@@ -1463,41 +1463,68 @@ function askAIConsultant(userQuery) {
     const totalFixed = rent + consortium + card + bills + market + dynamicFixedSum;
     const totalVar = state.transactions.filter(t => t.type === 'expense-variable').reduce((acc, t) => acc + t.value, 0);
     const balance = totalIncome - (totalFixed + totalVar);
-    const safeReserveTarget = totalFixed * 6;
-    
-    setTimeout(() => {
-        // Remover a bolha de digitando
+
+    const context = {
+        profile: state.profile,
+        emergencyReserve: state.emergencyReserve,
+        goals: state.goals,
+        activeMonth: state.activeMonth,
+        summary: {
+            income: totalIncome,
+            expenses: totalFixed + totalVar,
+            balance: balance
+        },
+        transactions: state.transactions
+    };
+
+    try {
+        // Tentar buscar resposta da IA real no backend
+        const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': state.currentUser ? state.currentUser.id : null
+            },
+            body: JSON.stringify({ message: userQuery, context })
+        });
+
+        const data = await res.json();
+        typingBubble.remove();
+
+        if (data.answer) {
+            // Converter markdown básico (negrito e listas) para HTML
+            let formatted = data.answer
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/^\s*[\-\*]\s+(.*)$/gm, '<li>$1</li>');
+            
+            if (formatted.includes('<li>')) {
+                formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+            }
+
+            addAIMessage('IA', formatted);
+        } else {
+            throw new Error('IA offline');
+        }
+
+    } catch (err) {
+        console.warn('IA Real falhou ou não configurada, usando lógica local:', err);
         typingBubble.remove();
         
+        // --- FALLBACK: LÓGICA LOCAL ANTIGA ---
         let response = '';
         const q = userQuery.toLowerCase();
         
-        // 2. PARSEADOR INTELIGENTE DE PERGUNTAS E INTENÇÃO FINANCEIRA
-        
-        // CASO A: SIMULAÇÃO DE COMPRA DE VALOR ESPECÍFICO (Ex: comprar um celular de R$ 3000 em 10x)
-        if (q.includes('compra') || q.includes('comprar') || q.includes('celular') || q.includes('computador') || q.includes('notebook') || q.includes('carro') || q.includes('gastar')) {
-            // Extrair valor numérico
-            const matchValue = q.match(/r?\$\s?(\d+([\.,]\d+)?)/i);
-            const valueRequested = matchValue ? parseFloat(matchValue[1].replace('.', '').replace(',', '.')) : 3000;
-            
-            // Extrair número de parcelas
-            const matchInstallments = q.match(/(\d+)\s?x/i);
-            const installmentsRequested = matchInstallments ? parseInt(matchInstallments[1]) : 10;
-            
-            const monthlyInstallment = valueRequested / installmentsRequested;
-            
-            response = `🎯 **Simulador de Impacto Financeiro da IA:**<br><br>`;
-            response += `Você deseja simular uma compra de **${formatCurrency(valueRequested)}** parcelada em **${installmentsRequested}x de ${formatCurrency(monthlyInstallment)}**.<br><br>`;
-            
-            if (balance <= 0) {
-                response += `❌ **Veredicto: Reprovado com força!**<br>`;
-                response += `Suas finanças já estão no vermelho com um déficit de **${formatCurrency(Math.abs(balance))}**. Adicionar mais **${formatCurrency(monthlyInstallment)}/mês** acelerará o endividamento. Recomendo adiar essa compra imediatamente até suas despesas fixas caírem abaixo de 75% de sua renda.`;
-            } else if (monthlyInstallment > balance) {
-                response += `⚠️ **Veredicto: Inviável!**<br>`;
-                response += `Sua sobra líquida média atual é de **${formatCurrency(balance)}**, o que significa que essa parcela mensal de **${formatCurrency(monthlyInstallment)}** consome toda sua sobra mensal e o deixará no déficit de **${formatCurrency(balance - monthlyInstallment)}** todo mês. Evite fechar este negócio nas condições atuais!`;
-            } else {
-                const ratioCompromised = ((totalFixed + totalVar + monthlyInstallment) / totalIncome) * 100;
-                
+        if (q.includes('compra') || q.includes('comprar') || q.includes('celular') || q.includes('computador')) {
+            response = `Sou o Finances.AI local 🤖. No momento, minha conexão com o cérebro avançado (Gemini) está desligada, mas posso dizer que você tem **${formatCurrency(balance)}** sobrando este mês. Use com cautela!`;
+        } else if (q.includes('ajuda') || q.includes('dicas')) {
+            response = "Para economizar, foque em reduzir seus gastos variáveis que hoje somam " + formatCurrency(totalVar) + ". Quer que eu analise algo específico?";
+        } else {
+            response = "Olá! Minha inteligência avançada (Gemini) precisa de uma API KEY para funcionar. Peça ao administrador para configurar a variável GEMINI_API_KEY no servidor!";
+        }
+        addAIMessage('IA', response);
+    }
+}
                 if (ratioCompromised > 80) {
                     response += `🟡 **Veredicto: Risco Elevado (Média Alerta).**<br>`;
                     response += `A parcela de **${formatCurrency(monthlyInstallment)}** cabe na sobra mensal de **${formatCurrency(balance)}**, mas elevará a sua taxa de comprometimento para **${ratioCompromised.toFixed(0)}%** do orçamento, ultrapassando os 80% seguros.<br>`;
