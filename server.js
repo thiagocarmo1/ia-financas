@@ -12,11 +12,16 @@ const webpush = require('web-push');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Configuração Gemini AI
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 let genAI;
-if (GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-}
+const initGemini = () => {
+    const key = process.env.GEMINI_API_KEY;
+    if (key && !genAI) {
+        console.log('Gemini AI: Chave detectada, inicializando motor...');
+        genAI = new GoogleGenerativeAI(key);
+    }
+    return genAI;
+};
+initGemini();
 
 // Configuração VAPID para notificações Push
 const VAPID_KEYS_FILE = path.join(__dirname, 'data', 'vapid-keys.json');
@@ -373,14 +378,17 @@ app.post('/api/ai/chat', async (req, res) => {
     const userId = parseInt(req.headers['x-user-id']);
     if (!userId) return res.status(401).json({ error: 'Não autenticado.' });
     
-    if (!genAI) {
+    const ai = initGemini();
+    if (!ai) {
+        console.error('ERRO: GEMINI_API_KEY não encontrada nas variáveis de ambiente da Render.');
         return res.status(503).json({ error: 'Serviço de IA não configurado no servidor.' });
     }
 
     const { message, context } = req.body;
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        console.log(`IA: Processando pergunta para o usuário ${userId}...`);
+        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
         
         // Construir prompt com contexto financeiro
         const systemPrompt = `Você é o "Finances.AI", um consultor financeiro proativo e inteligente para a aplicação "Polly e Thi finance".
@@ -406,10 +414,11 @@ MENSAGEM DO USUÁRIO: "${message}"`;
         const response = await result.response;
         const text = response.text();
 
+        console.log(`IA: Resposta gerada com sucesso para o usuário ${userId}.`);
         res.json({ success: true, answer: text });
     } catch (e) {
-        console.error('Erro na API do Gemini:', e);
-        res.status(500).json({ error: 'Erro ao processar consulta de IA.' });
+        console.error('ERRO NA API DO GEMINI:', e.message);
+        res.status(500).json({ error: 'Erro ao processar consulta de IA: ' + e.message });
     }
 });
 
