@@ -95,6 +95,8 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        // Adicionar coluna se não existir (para usuários antigos)
+        await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS push_subscription JSONB');
         console.log('Banco de dados (PostgreSQL/Supabase) pronto!');
         
         await migrateFromJson();
