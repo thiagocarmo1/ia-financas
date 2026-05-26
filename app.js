@@ -1432,17 +1432,19 @@ function handleChatSubmit(e) {
 }
 
 async function askAIConsultant(userQuery) {
+    console.log('IA: Iniciando consulta para:', userQuery);
+    
     // 1. Exibir mensagem do usuário na tela
     addAIMessage('USER', userQuery);
     
-    // Efeito visual de digitação rápida
+    // Efeito visual de digitação
     const typingBubble = document.createElement('div');
     typingBubble.className = 'message ai typing';
     typingBubble.innerHTML = 'IA pensando...';
     chatContainer.appendChild(typingBubble);
     chatContainer.scrollTop = chatContainer.scrollHeight;
     
-    // Obter dados financeiros para o contexto da IA
+    // Obter dados financeiros em tempo real para o contexto
     const fixedSalary = parseFloat(state.profile.salary) || 0;
     const otherIncome = parseFloat(state.profile.otherIncome) || 0;
     const rent = parseFloat(state.profile.rent) || 0;
@@ -1478,7 +1480,7 @@ async function askAIConsultant(userQuery) {
     };
 
     try {
-        // Tentar buscar resposta da IA real no backend
+        console.log('IA: Enviando requisição para o backend...');
         const res = await fetch('/api/ai/chat', {
             method: 'POST',
             headers: { 
@@ -1492,6 +1494,7 @@ async function askAIConsultant(userQuery) {
         typingBubble.remove();
 
         if (data.answer) {
+            console.log('IA: Resposta recebida com sucesso.');
             // Converter markdown básico (negrito e listas) para HTML
             let formatted = data.answer
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -1503,26 +1506,17 @@ async function askAIConsultant(userQuery) {
             }
 
             addAIMessage('IA', formatted);
+        } else if (data.error) {
+            console.error('IA: Erro retornado pelo servidor:', data.error);
+            addAIMessage('IA', `⚠️ **Erro no Cérebro da IA:** ${data.error}`);
         } else {
-            throw new Error('IA offline');
+            throw new Error('Resposta vazia do servidor');
         }
 
     } catch (err) {
-        console.warn('IA Real falhou ou não configurada, usando lógica local:', err);
+        console.error('IA: Falha na comunicação:', err);
         typingBubble.remove();
-        
-        // --- FALLBACK: LÓGICA LOCAL ANTIGA ---
-        let response = '';
-        const q = userQuery.toLowerCase();
-        
-        if (q.includes('compra') || q.includes('comprar') || q.includes('celular') || q.includes('computador')) {
-            response = `Sou o Finances.AI local 🤖. No momento, minha conexão com o cérebro avançado (Gemini) está desligada, mas posso dizer que você tem **${formatCurrency(balance)}** sobrando este mês. Use com cautela!`;
-        } else if (q.includes('ajuda') || q.includes('dicas')) {
-            response = "Para economizar, foque em reduzir seus gastos variáveis que hoje somam " + formatCurrency(totalVar) + ". Quer que eu analise algo específico?";
-        } else {
-            response = "Olá! Minha inteligência avançada (Gemini) precisa de uma API KEY para funcionar. Peça ao administrador para configurar a variável GEMINI_API_KEY no servidor!";
-        }
-        addAIMessage('IA', response);
+        addAIMessage('IA', '❌ **IA Indisponível:** Não consegui conversar com o servidor. Verifique se a variável GEMINI_API_KEY está correta na Render.');
     }
 }
                 if (ratioCompromised > 80) {
