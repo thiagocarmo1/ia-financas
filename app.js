@@ -626,6 +626,30 @@ function renderTransactionsTable() {
     });
 }
 
+function toggleInstallmentMonths() {
+    const isInstallment = document.getElementById('trans-installment').checked;
+    const group = document.getElementById('installment-months-group');
+    if (isInstallment) {
+        group.classList.remove('hidden');
+        document.getElementById('trans-recurring').checked = false; // Desmarcar o outro
+        document.getElementById('recurring-months-group').classList.add('hidden');
+    } else {
+        group.classList.add('hidden');
+    }
+}
+
+function toggleRecurringMonths() {
+    const isRecurring = document.getElementById('trans-recurring').checked;
+    const group = document.getElementById('recurring-months-group');
+    if (isRecurring) {
+        group.classList.remove('hidden');
+        document.getElementById('trans-installment').checked = false; // Desmarcar o outro
+        document.getElementById('installment-months-group').classList.add('hidden');
+    } else {
+        group.classList.add('hidden');
+    }
+}
+
 // ADICIONAR NOVA TRANSAÇÃO
 async function handleTransactionSubmit(e) {
     e.preventDefault();
@@ -636,6 +660,7 @@ async function handleTransactionSubmit(e) {
     const category = document.getElementById('trans-category').value;
     const essential = document.getElementById('trans-essential').checked;
     const isInstallment = document.getElementById('trans-installment').checked;
+    const isRecurring = document.getElementById('trans-recurring').checked;
     const dueDate = document.getElementById('trans-due-date').value;
     const pending = document.getElementById('trans-pending').checked;
 
@@ -643,45 +668,52 @@ async function handleTransactionSubmit(e) {
 
     const today = new Date().toISOString().split('T')[0];
 
-    if (isInstallment && type === 'expense-variable') {
-        const numMonths = parseInt(document.getElementById('trans-install-months').value) || 2;
-        const installmentValue = value / numMonths;
+    // LÓGICA PARA PARCELAMENTO OU RECORRÊNCIA
+    if ((isInstallment && type === 'expense-variable') || isRecurring) {
+        const numMonths = isInstallment 
+            ? (parseInt(document.getElementById('trans-install-months').value) || 2)
+            : (parseInt(document.getElementById('trans-recurring-months').value) || 2);
+            
+        const monthlyValue = isInstallment ? (value / numMonths) : value;
 
         for (let i = 1; i <= numMonths; i++) {
             const dateOffset = new Date();
             dateOffset.setMonth(dateOffset.getMonth() + (i - 1));
-            const paymentDate = dateOffset.toISOString().split('T')[0];
+            const transactionDate = dateOffset.toISOString().split('T')[0];
             const targetMonth = getYearMonth(dateOffset);
 
-            // Calcular data de vencimento para parcelas
+            // Calcular data de vencimento
             let instDueDate = null;
             if (dueDate) {
                 const d = new Date(dueDate);
-                d.setMonth(d.getUTCMonth() + (i - 1));
+                d.setUTCMonth(d.getUTCMonth() + (i - 1));
                 instDueDate = d.toISOString().split('T')[0];
             }
 
             const tx = {
                 id: Date.now() + i,
-                desc: `${desc} (${i}/${numMonths})`,
-                value: installmentValue,
-                type: 'expense-variable',
-                category,
-                essential,
-                date: paymentDate,
+                desc: isRecurring ? desc : `${desc} (${i}/${numMonths})`,
+                value: monthlyValue,
+                type: type,
+                category: type === 'income-extra' ? 'Outros' : category,
+                essential: type === 'income-extra' ? false : essential,
+                date: transactionDate,
                 dueDate: instDueDate,
                 pending
             };
 
-            // Adicionar no mês correspondente
             await addTransactionToMonth(targetMonth, tx);
 
-            // Se for o mês ativo, atualizar estado local
             if (targetMonth === state.activeMonth) {
                 state.transactions.push(tx);
             }
         }
-        addAIMessage('IA', `Registrei a compra parcelada <strong>${desc}</strong> em <strong>${numMonths}x de ${formatCurrency(installmentValue)}</strong> nos próximos meses!`);
+        
+        const msg = isRecurring 
+            ? `Agendei o lançamento <strong>${desc}</strong> para os próximos <strong>${numMonths} meses</strong>!`
+            : `Registrei a compra parcelada <strong>${desc}</strong> em <strong>${numMonths}x de ${formatCurrency(monthlyValue)}</strong>!`;
+            
+        addAIMessage('IA', msg);
     } else {
         const tx = {
             id: Date.now(),

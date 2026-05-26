@@ -411,11 +411,20 @@
                                             <input type="checkbox" id="trans-installment" onchange="toggleInstallmentMonths()">
                                             <label for="trans-installment">Parcelado?</label>
                                         </div>
+                                        <div class="checkbox-group">
+                                            <input type="checkbox" id="trans-recurring" onchange="toggleRecurringMonths()">
+                                            <label for="trans-recurring">Repetir (Mensal)?</label>
+                                        </div>
                                     </div>
 
                                     <div class="form-group hidden" id="installment-months-group">
-                                        <label for="trans-install-months">Número de Parcelas</label>
+                                        <label for="trans-install-months">Número de Parcelas (Divide o valor)</label>
                                         <input type="number" id="trans-install-months" min="2" max="48" value="2">
+                                    </div>
+
+                                    <div class="form-group hidden" id="recurring-months-group">
+                                        <label for="trans-recurring-months">Repetir por quantos meses? (Valor integral)</label>
+                                        <input type="number" id="trans-recurring-months" min="2" max="48" value="12">
                                     </div>
 
                                     <button type="submit" class="submit-btn green-btn">Confirmar Lançamento</button>
