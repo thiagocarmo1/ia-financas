@@ -1,4 +1,4 @@
-const CACHE_NAME = 'polly-thi-finance-v2';
+const CACHE_NAME = 'polly-thi-finance-v3';
 const ASSETS = [
   '/',
   '/index.html',

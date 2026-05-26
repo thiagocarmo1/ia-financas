@@ -1390,7 +1390,7 @@ function updateAIConsultantWelcome() {
     const balance = totalIncome - (totalFixed + totalVar);
     const months = state.emergencyReserve / (totalFixed > 0 ? totalFixed : 1000);
     
-    let welcomeMsg = `Olá! Sou o seu consultor financeiro **Polly e Thi finance** 🤖.<br><br>`;
+    let welcomeMsg = `Olá! Sou o seu consultor financeiro **Polly e Thi finance** 🤖. (v3.0 - IA Ativa)<br><br>`;
     welcomeMsg += `Analisei o seu perfil atual:<br>`;
     welcomeMsg += `&bull; **Renda Total:** ${formatCurrency(totalIncome)}<br>`;
     welcomeMsg += `&bull; **Despesas Fixas:** ${formatCurrency(totalFixed)} (${((totalFixed/totalIncome)*100).toFixed(0)}% do orçamento)<br>`;
